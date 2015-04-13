@@ -39,7 +39,6 @@ function Check-Password($computer, $accountName, $password)
     Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 
     $testObj = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('machine',$computer)
-    
     return $testObj.ValidateCredentials($accountName, $password)
 }
 
@@ -74,6 +73,7 @@ $computers = $null
 $badconnection = @()
 $withAccount = @()
 $withoutAccount = @()
+$passwordPassed = @()
 $passwordFailed = @()
 $accountName = $null
 $password = $null
@@ -85,6 +85,7 @@ $renameAdmin = $null
 [System.Collections.ArrayList]$badconnection = $badconnection
 [System.Collections.ArrayList]$withAccount = $withAccount
 [System.Collections.ArrayList]$withoutAccount = $withoutAccount
+[System.Collections.ArrayList]$passwordPassed = $passwordPassed
 [System.Collections.ArrayList]$passwordFailed = $passwordFailed 
 
 if ($args.Length -eq 1 -and $args[0].EndsWith(".txt"))
@@ -118,6 +119,8 @@ $password = Read-Host "Please enter the password you are looking for"
 
 Clear-Host
 
+Write-Host "Please close compmgmt.msc if it is currently open and re-run script."
+
 #Check for bad connections.  If bad, remove from main list.
 for ($i = 0;$i -lt $computers.Count; $i++)
 {
@@ -148,9 +151,13 @@ for ($i = 0;$i -lt $computers.Count; $i++)
 }
 
 #Check that the password supplied earlier works on machines that have the account.
-for ($i = 0;$i -lt $withAccount.Capacity; $i++)
+for ($i = 0;$i -lt $withAccount.Count; $i++)
 {
-    if(-Not (Check-Password $withAccount[$i]))
+    if(Check-Password $withAccount[$i] $accountName $password)
+    {
+        $passwordPassed.Add($withAccount[$i])
+    }
+    else
     {
         $passwordFailed.Add($withAccount[$i])
     }
@@ -174,22 +181,92 @@ if ($passwordFailed.Count -gt 0)
 }
 
 #Either add account, or rename Administrator
-Write-Host "The following do not have $accountName"
-Write-Host $withoutAccount
-
-$renameAdmin =  Read-Host "Type 'y' if you would like to rename Administrator on these machines,other wise $accountName will simply be added"
-
-if ($renameAdmin -eq 'y')
+if ($withoutAccount.Count -gt 0)
 {
-    for ($i = 0; $i -lt $withoutAccount.Count; $i++)
+    Write-Host "The following do not have $accountName"
+    Write-Host $withoutAccount
+
+    $renameAdmin =  Read-Host "Type 'y' if you would like to rename Administrator on these machines,other wise $accountName will simply be added"
+
+    if ($renameAdmin -eq 'y')
     {
-        Rename-Administrator $withoutAccount[$i] $accountName $password
+        for ($i = 0; $i -lt $withoutAccount.Count; $i++)
+        {
+            Rename-Administrator $withoutAccount[$i] $accountName $password
+        }
+    }
+    else
+    {
+        for ($i = 0; $i -lt $withoutAccount.Count; $i++)
+        {
+            Add-Account $withoutAccount[$i] $accountName $password
+        }
     }
 }
-else
+
+#Report
+Set-Content -Path ".\$accountName-Report.txt" -Value "Report for account $accountName"
+Add-Content -Path ".\$accountName-Report.txt" -Value "`n`n`n"
+
+if ($passwordPassed.Count -gt 0)
 {
-    for ($i = 0; $i -lt $withoutAccount.Count; $i++)
+    Add-Content -Path ".\$accountName-Report.txt" -Value "Machines with $accountName and correct password:"
+    for ($i = 0; $i -lt $passwordPassed.Count;$i++)
+    {    
+        Add-Content -Path ".\$accountName-Report.txt" -Value $passwordPassed[$i]
+    }
+    
+    Add-Content -Path ".\$accountName-Report.txt" -Value "`n`n`n"
+}
+
+
+if ($passwordFailed.Count -gt 0)
+{
+    Add-Content -Path ".\$accountName-Report.txt" -Value "Machines with $accountName but incorrect password:"
+    for ($i = 0; $i -lt $passwordFailed.Count;$i++)
+    {    
+        Add-Content -Path ".\$accountName-Report.txt" -Value $passwordFailed[$i]
+    }
+    
+    if ($changePwd -eq 'y') 
+    { 
+        Add-Content -Path ".\$accountName-Report.txt" -Value "The above machines now have the correct password."
+    }
+    
+    Add-Content -Path ".\$accountName-Report.txt" -Value "`n`n`n"
+}
+
+
+
+if ($withoutAccount.Count -gt 0)
+{
+    Add-Content -Path ".\$accountName-Report.txt" -Value "Machines without $accountName :"
+    for ($i = 0; $i -lt $withoutAccount.Count;$i++)
+    {    
+        Add-Content -Path ".\$accountName-Report.txt" -Value $withoutAccount[$i]
+    }
+
+    if ($renameAdmin -eq 'y')
     {
-        Add-Account $withoutAccount[$i] $accountName $password
+        Add-Content -Path ".\$accountName-Report.txt" -Value "Renamed 'Administrator' for the above machines."
+    }
+    else
+    {
+        Add-Content -Path ".\$accountName-Report.txt" -Value "Added $accountName for the above machines."
+    }
+
+    Add-Content -Path ".\$accountName-Report.txt" -Value "`n`n`n"
+}
+
+if ($badconnection.Count -gt 0)
+{
+    Add-Content -Path ".\$accountName-Report.txt" -Value "Could not connect to the following: "
+
+    for ($i = 0; $i -lt $badconnection.Count; $i++)
+    {
+        Add-Content -Path ".\$accountName-Report.txt" -Value $badconnection[$i]
     }
 }
+
+Clear-Host
+Get-Content -Path ".\$accountName-Report.txt"
