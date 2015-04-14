@@ -2,7 +2,6 @@ function Check-WRM ($computer, $cred)
 {
     $isGood = $true
     
-    #need to research a way to make the error silent 
     Try
     { 
         Test-WSMan -ComputerName $computer -ErrorAction SilentlyContinue
