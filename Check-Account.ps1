@@ -110,7 +110,6 @@ $accountName = Read-Host "Please enter the account name you are looking for"
 $password = Read-Host "Please enter the password you are looking for"
 
 Clear-Host
-Write-Host "Please close compmgmt.msc if it is currently open and re-run script."
 
 #Check for bad connections.  If bad, remove from main list.
 for ($i = 0;$i -lt $computers.Count; $i++)
@@ -171,7 +170,7 @@ if ($withoutAccount.Count -gt 0)
     Write-Host "The following do not have $accountName"
     Write-Host $withoutAccount
 
-    $renameAdmin =  Read-Host "Type 'y' if you would like to rename Administrator on these machines,other wise $accountName will simply be added"
+    $renameAdmin =  Read-Host "Type 'y' if you would like to rename Administrator on these machines,otherwise $accountName will simply be added"
 
     if ($renameAdmin -eq 'y')
     {
