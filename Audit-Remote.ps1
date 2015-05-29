@@ -27,7 +27,6 @@ else
 
 $deviceSerial = $null
 $deviceAsset = $null
-$cred = Get-Credential
 
 Set-Content -Path ".\audit.csv" -Value "Name,Asset,Serial"
 
@@ -40,7 +39,7 @@ foreach($device in $deviceList)
 {
     try
     {
-    $deviceAsset = Get-CimInstance -Namespace root/CIMV2 -ClassName Win32_SystemEnclosure -ComputerName $device -Credential $cred
+    $deviceAsset = Get-CimInstance -Namespace root/CIMV2 -ClassName Win32_SystemEnclosure -ComputerName $device
     $deviceAsset = $deviceAsset.SMBIOSAssetTag
     $deviceSerial = Get-CimInstance -Namespace root/CIMV2 -ClassName Win32_BIOS -ComputerName $device
     $deviceSerial = $deviceSerial.SerialNumber
