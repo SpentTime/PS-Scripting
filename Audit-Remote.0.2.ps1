@@ -1,4 +1,16 @@
-﻿
+﻿function Get-Asset()
+{
+    $asset = Get-CimInstance -Namespace root/CIMV2 -ClassName Win32_SystemEnclosure
+    $asset = $asset.SMBIOSAssetTag
+    $asset
+}
+
+function Get-Serial()
+{
+    $serial = Get-CimInstance -Namespace root/CIMV2 -ClassName Win32_BIOS
+    $serial = $serial.SerialNumber
+    $serial
+}
 
 if ($args.Length -eq 1 -and $args[0].EndsWith(".txt"))
 {
@@ -28,6 +40,7 @@ else
 $deviceSerial = $null
 $deviceAsset = $null
 $cred = Get-Credential
+$session = $null #for getting info from Invoke-Command
 
 Set-Content -Path ".\audit.csv" -Value "Name,Asset,Serial"
 
@@ -40,18 +53,18 @@ foreach($device in $deviceList)
 {
     try
     {
-    $deviceAsset = Get-CimInstance -Namespace root/CIMV2 -ClassName Win32_SystemEnclosure -ComputerName $device -Credential $cred
-    $deviceAsset = $deviceAsset.SMBIOSAssetTag
-    $deviceSerial = Get-CimInstance -Namespace root/CIMV2 -ClassName Win32_BIOS -ComputerName $device
-    $deviceSerial = $deviceSerial.SerialNumber
+    $session = New-PSSession -Credential $cred -ComputerName $device
+    $deviceAsset = Invoke-Command -Session $session -ScriptBlock ${Function:Get-Asset}
+    $deviceSerial = Invoke-Command -Session $session -ScriptBlock ${Function:Get-Serial}
     }
-    catch [Microsoft.Management.Infrastructure.CimException]
+    catch [System.Management.Automation.Remoting.PSRemotingTransportException]
     {
-    $deviceAsset = "Cannot connect"
-    $deviceSerial = "Cannot connect"
+    $deviceAsset = "Can't connect"
+    $deviceSerial = ($_.Exception.Message)
     }
     catch
     {
+    Write-Host "Unexpected Exception: " -ForegroundColor Red
     write-host "Exception Type: $($_.Exception.GetType().FullName)" -ForegroundColor Red
     write-host "Exception Message: $($_.Exception.Message)" -ForegroundColor Red
     }
@@ -60,6 +73,7 @@ foreach($device in $deviceList)
     Add-Content -Path ".\audit.csv" -Value "$device,$deviceAsset,$deviceSerial"
     $deviceAsset = $null
     $deviceSerial = $null
+    if ($session -ne $null) {Remove-PSSession $session}
     }
 }
 
